@@ -1,30 +1,35 @@
 # frozen_string_literal: true
 
 # name: discourse-reveal-anonymous
-# about: Allows moderators to identify who anonymous posters are.
-# version: 2.0
+# about: Lets staff see the real account behind an anonymous user.
+# version: 2.1
 # authors: Dylan Brotherston
 # url: https://github.com/Dylan-Brotherston/discourse-reveal-anonymous
+# required_version: 2026.5.0
 
 enabled_site_setting :reveal_anonymous_enabled
 
-def add_to_serializer_staffonly(serializer, attr, define_include_method = true, &block)
-  reloadable_patch do |plugin|
-    base = "#{serializer.to_s.classify}Serializer".constantize rescue "#{serializer.to_s}Serializer".constantize
+register_asset "stylesheets/anonymous-users.scss"
 
-    ([base] + base.descendants).each do |klass|
-      unless attr.to_s.start_with?("include_")
-        klass.staff_attributes(attr)
-      end
-      klass.public_send(:define_method, attr, &block)
-    end
-  end
+module ::DiscourseRevealAnonymous
+  PLUGIN_NAME = "discourse-reveal-anonymous"
 end
 
-register_asset 'stylesheets/anonymous-users.scss'
+require_relative "lib/discourse_reveal_anonymous/web_hook_user_serializer_extension"
 
 after_initialize do
-  add_to_serializer_staffonly :user_card, :master_user do
-    UserCardSerializer.new(object.master_user, scope: scope, root: false) if SiteSetting.reveal_anonymous_enabled
+  # Staff only, and only for users that actually have a master account, so
+  # regular users never carry a `master_user` key at all. `UserSerializer`
+  # (the profile) inherits from `UserCardSerializer`, so both get it.
+  add_to_serializer(
+    :user_card,
+    :master_user,
+    include_condition: -> { scope.is_staff? && object.master_user.present? },
+  ) { BasicUserSerializer.new(object.master_user, scope: scope, root: false) }
+
+  # Webhook payloads are built with a system-user scope, which counts as staff.
+  # The real identity must never be sent to external endpoints.
+  reloadable_patch do
+    WebHookUserSerializer.prepend(DiscourseRevealAnonymous::WebHookUserSerializerExtension)
   end
 end

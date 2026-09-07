@@ -1,6 +1,7 @@
 import Component from "@glimmer/component";
 import { service } from "@ember/service";
 import { userPath } from "discourse/lib/url";
+import dIcon from "discourse/ui-kit/helpers/d-icon";
 
 export default class AnonymousIdentity extends Component {
   @service currentUser;
@@ -24,4 +25,17 @@ export default class AnonymousIdentity extends Component {
 
     return this.username;
   }
+
+  <template>
+    {{#if this.shouldDisplay}}
+      <a
+        href={{this.link}}
+        data-user-card={{this.dataUserCard}}
+        class="anon-user-identity"
+      >
+        {{dIcon "user-secret"}}
+        {{this.username}}
+      </a>
+    {{/if}}
+  </template>
 }
