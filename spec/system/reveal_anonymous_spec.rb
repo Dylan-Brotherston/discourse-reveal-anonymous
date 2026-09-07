@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-RSpec.describe "Revealing anonymous users", type: :system do
-  fab!(:master) { Fabricate(:user) }
+RSpec.describe "Revealing anonymous users" do
+  fab!(:master, :user)
   fab!(:anonymous_user) do
     Fabricate(:anonymous).tap do |shadow|
       shadow.anonymous_user_master.update!(master_user_id: master.id)
